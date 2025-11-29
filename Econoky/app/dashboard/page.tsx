@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Wallet, TrendingUp, Users, FileText } from 'lucide-react'
+import { Wallet, TrendingUp, Users, FileText, Shield, CheckCircle } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { getProfile } from '@/lib/db/profiles'
 import { getPostsByUserId } from '@/lib/db/posts'
@@ -20,7 +20,21 @@ export default async function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold mb-8 text-white">Dashboard</h1>
+      <div className="flex items-center gap-4 mb-8">
+        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+        {profile?.role === 'admin' && (
+          <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-600 text-white flex items-center gap-1">
+            <Shield className="w-4 h-4" />
+            Admin
+          </span>
+        )}
+        {profile?.is_verified && (
+          <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-600 text-white flex items-center gap-1">
+            <CheckCircle className="w-4 h-4" />
+            Verified
+          </span>
+        )}
+      </div>
       
       {/* Tarjetas de resumen */}
       <div className="grid md:grid-cols-4 gap-6 mb-8">
