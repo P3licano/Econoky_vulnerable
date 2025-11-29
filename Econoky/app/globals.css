@@ -1,0 +1,63 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+:root {
+  --color-brand-aqua: #46D6CA;
+  --color-brand-sky: #4DB0F0;
+  --color-brand-indigo: #7A74D6;
+  --color-secondary-white: #FFFFFF;
+  --color-secondary-light: #EAEAEA;
+  --color-secondary-dark: #26235D;
+}
+
+body {
+  color: var(--color-secondary-dark);
+  background:
+    radial-gradient(circle at 12% 20%, rgba(70, 214, 202, 0.35), transparent 50%),
+    radial-gradient(circle at 88% 8%, rgba(122, 116, 214, 0.35), transparent 40%),
+    linear-gradient(180deg, rgba(70, 214, 202, 0.12) 0%, rgba(77, 176, 240, 0.08) 35%, rgba(234, 234, 234, 0.7) 100%),
+    var(--color-secondary-white);
+  min-height: 100vh;
+}
+
+main {
+  position: relative;
+  z-index: 1;
+}
+
+@layer components {
+  .cta-button {
+    background-image: linear-gradient(90deg, #46D6CA 0%, #4DB0F0 50%, #7A74D6 100%);
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 15px 35px rgba(77, 176, 240, 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .cta-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 25px 45px rgba(122, 116, 214, 0.4);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Quitar flechas de inputs numéricos en todos los navegadores */
+input[type='number'] {
+  -webkit-appearance: none; /* Chrome, Safari, Edge */
+  -moz-appearance: textfield; /* Firefox */
+  appearance: textfield; /* estándar moderno */
+  margin: 0;
+}
+
+/* Solo WebKit necesita pseudo-elementos */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
