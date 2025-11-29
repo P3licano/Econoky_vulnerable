@@ -13,45 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-
-// Credentials data that will be exposed after bypass
-const credentialsData = [
-  {
-    id: 1,
-    email: "anaprietoper@protonmail.com",
-    password: "SecurePass2024!",
-    role: "admin",
-    created_at: "2024-01-15T10:30:00Z"
-  },
-  {
-    id: 2,
-    email: "carlos.mendez@gmail.com",
-    password: "CarlosM_2023#",
-    role: "user",
-    created_at: "2024-02-20T14:45:00Z"
-  },
-  {
-    id: 3,
-    email: "maria.rodriguez@outlook.com",
-    password: "MaRod!Finance99",
-    role: "moderator",
-    created_at: "2024-03-10T09:15:00Z"
-  },
-  {
-    id: 4,
-    email: "jorge.fernandez@yahoo.es",
-    password: "JFernandez@2024",
-    role: "user",
-    created_at: "2024-04-05T16:20:00Z"
-  },
-  {
-    id: 5,
-    email: "lucia.martinez@hotmail.com",
-    password: "LuciaM#Econoky1",
-    role: "user",
-    created_at: "2024-05-12T11:00:00Z"
-  }
-];
+import { testCredentials } from '@/lib/pentesting/credentials';
 
 interface RouteParams {
   params: Promise<{
@@ -76,7 +38,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     data: {
       backup_date: '2024-11-29',
       backup_type: 'user_credentials',
-      users: credentialsData
+      users: testCredentials
     }
   });
 }

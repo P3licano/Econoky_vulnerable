@@ -12,46 +12,7 @@
  */
 
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
-
-// Credentials data that will be exposed after bypass
-const credentialsData = [
-  {
-    id: 1,
-    email: "anaprietoper@protonmail.com",
-    password: "SecurePass2024!",
-    role: "admin",
-    created_at: "2024-01-15T10:30:00Z"
-  },
-  {
-    id: 2,
-    email: "carlos.mendez@gmail.com",
-    password: "CarlosM_2023#",
-    role: "user",
-    created_at: "2024-02-20T14:45:00Z"
-  },
-  {
-    id: 3,
-    email: "maria.rodriguez@outlook.com",
-    password: "MaRod!Finance99",
-    role: "moderator",
-    created_at: "2024-03-10T09:15:00Z"
-  },
-  {
-    id: 4,
-    email: "jorge.fernandez@yahoo.es",
-    password: "JFernandez@2024",
-    role: "user",
-    created_at: "2024-04-05T16:20:00Z"
-  },
-  {
-    id: 5,
-    email: "lucia.martinez@hotmail.com",
-    password: "LuciaM#Econoky1",
-    role: "user",
-    created_at: "2024-05-12T11:00:00Z"
-  }
-];
+import { testCredentials } from '@/lib/pentesting/credentials';
 
 export default async function BackupsPage() {
   const headersList = await headers();
@@ -94,7 +55,7 @@ export default async function BackupsPage() {
             🔐 Backup System - User Credentials
           </h1>
           <p className="text-sm text-gray-500 mb-6">
-            Last backup: 2024-11-29 | Total users: {credentialsData.length}
+            Last backup: 2024-11-29 | Total users: {testCredentials.length}
           </p>
           
           {/* VULNERABILITY: Plaintext credentials displayed */}
@@ -110,7 +71,7 @@ export default async function BackupsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {credentialsData.map((user) => (
+                {testCredentials.map((user) => (
                   <tr key={user.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
@@ -127,7 +88,7 @@ export default async function BackupsPage() {
           <div className="mt-6 p-4 bg-gray-900 rounded-lg">
             <p className="text-sm text-green-400 mb-2">// Raw JSON Export:</p>
             <pre className="text-xs text-gray-300 overflow-x-auto">
-              {JSON.stringify(credentialsData, null, 2)}
+              {JSON.stringify(testCredentials, null, 2)}
             </pre>
           </div>
         </div>

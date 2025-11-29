@@ -63,8 +63,8 @@ export async function middleware(request: NextRequest) {
     );
   }
   
-  // El middleware ahora solo pasa las peticiones
-  // La autenticación se maneja en cada página/API
+  // The middleware now just passes requests through
+  // Authentication is handled in each page/API route
   return NextResponse.next()
 }
 
