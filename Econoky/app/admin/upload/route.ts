@@ -1,19 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { writeFile, mkdir } from 'fs/promises'
+import { existsSync } from 'fs'
+import path from 'path'
 
 /**
- * VULNERABILITY: 403 Bypass via HTTP Method Change
+ * VULNERABILITY 1: File Upload Bypass
  * 
- * This endpoint demonstrates a common misconfiguration where access control
- * is only applied to certain HTTP methods, allowing attackers to bypass
- * 403 restrictions by simply changing the request method.
+ * This endpoint demonstrates multiple file upload bypass techniques:
+ * 1. Double Extension Bypass: shell.php.jpg bypasses extension check
+ * 2. Content-Type Spoofing: Changing Content-Type header to image/jpeg
+ * 3. Magic Bytes: Adding GIF89a at the start of a PHP file
  * 
- * Vulnerability flow:
- * 1. GET /admin/upload → 403 Forbidden (blocked)
- * 2. POST /admin/upload → 200 OK (bypass successful)
+ * The validation only checks extension OR Content-Type, making it vulnerable
+ * to bypass techniques.
  * 
  * EDUCATIONAL PURPOSE: This is for pentesting lab training only.
- * This simulates a real-world misconfiguration in access control.
  */
+
+// VULNERABILIDAD 1: Validación débil de extensión
+// Solo verifica si el nombre del archivo contiene una extensión de imagen
+// Vulnerable a doble extensión (shell.php.jpg), Content-Type spoofing, y magic bytes
+const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
+
+function hasImageExtension(filename: string): boolean {
+  // VULNERABLE: Solo verifica si alguna extensión de imagen está presente en el nombre
+  // NO verifica que sea la última extensión
+  const lowerFilename = filename.toLowerCase()
+  return ALLOWED_IMAGE_EXTENSIONS.some(ext => lowerFilename.includes(ext))
+}
+
+function isImageContentType(contentType: string | null): boolean {
+  // VULNERABLE: Confía ciegamente en el Content-Type header proporcionado
+  if (!contentType) return false
+  return contentType.startsWith('image/')
+}
 
 /**
  * GET handler - Returns 403 Forbidden
@@ -39,13 +59,88 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST handler - Returns 200 OK (Bypass vulnerability)
- * This is the vulnerable bypass - the same endpoint allows POST access
+ * POST handler - File Upload with vulnerable validation
+ * VULNERABILITY: Weak validation allows multiple bypass techniques
  */
 export async function POST(request: NextRequest) {
-  // VULNERABILITY: POST method bypasses the 403 restriction
-  // In a real application, this would be a serious security flaw
+  const contentType = request.headers.get('content-type') || ''
   
+  // Check if it's a file upload request
+  if (contentType.includes('multipart/form-data')) {
+    try {
+      const formData = await request.formData()
+      const file = formData.get('file') as File | null
+      
+      if (!file) {
+        return new NextResponse(
+          JSON.stringify({ error: 'No se ha seleccionado ningún archivo' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      const filename = file.name
+      const fileContentType = file.type
+      
+      // VULNERABILIDAD 1: Validación débil
+      // Solo verifica extensión O Content-Type, no ambos
+      // Permite bypass con doble extensión, content-type spoofing, o magic bytes
+      const hasValidExtension = hasImageExtension(filename)
+      const hasValidContentType = isImageContentType(fileContentType)
+      
+      // Si el archivo es .php sin ninguna extensión de imagen, rechazar
+      // PERO si tiene doble extensión (shell.php.jpg) o content-type image/*, permitir
+      if (filename.toLowerCase().endsWith('.php') && !hasValidExtension && !hasValidContentType) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Solo se permiten archivos de imagen' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      // Si no tiene ninguna validación de imagen, rechazar
+      if (!hasValidExtension && !hasValidContentType) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Solo se permiten archivos de imagen' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      // Guardar archivo en el directorio de uploads
+      const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
+      
+      // Crear directorio si no existe
+      if (!existsSync(uploadsDir)) {
+        await mkdir(uploadsDir, { recursive: true })
+      }
+      
+      const bytes = await file.arrayBuffer()
+      const buffer = Buffer.from(bytes)
+      
+      // VULNERABLE: Guarda el archivo con su nombre original sin sanitizar
+      const filePath = path.join(uploadsDir, filename)
+      await writeFile(filePath, buffer)
+      
+      return new NextResponse(
+        JSON.stringify({
+          success: true,
+          message: 'Archivo subido exitosamente',
+          filename: filename,
+          path: `/uploads/${filename}`,
+          size: file.size
+        }),
+        { 
+          status: 200, 
+          headers: { 'Content-Type': 'application/json' } 
+        }
+      )
+    } catch (error) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Error al procesar el archivo' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+  }
+  
+  // Si no es upload, mostrar el formulario
   const htmlResponse = `
     <!DOCTYPE html>
     <html lang="es">
@@ -122,13 +217,17 @@ export async function POST(request: NextRequest) {
         button:hover {
           background-color: #00cc6a;
         }
-        .vulnerability-note {
-          background-color: #ff6b6b;
-          color: #000;
+        .info-note {
+          background-color: #0f3460;
+          color: #eee;
           padding: 10px;
           border-radius: 5px;
           margin-top: 20px;
           font-size: 12px;
+          border-left: 4px solid #00aaff;
+        }
+        .info-note a {
+          color: #00aaff;
         }
       </style>
     </head>
@@ -151,8 +250,8 @@ export async function POST(request: NextRequest) {
           <button type="submit">Upload</button>
         </form>
         
-        <div class="vulnerability-note">
-          <strong>⚠️ Educational Note:</strong> This demonstrates a real-world vulnerability where access controls are only applied to specific HTTP methods. Always validate access for ALL HTTP methods in production systems.
+        <div class="info-note">
+          <strong>📝 Los tipos de imagen soportados están aquí:</strong> <a href="https://www.iana.org/assignments/media-types/media-types.xhtml#image" target="_blank">https://www.iana.org/assignments/media-types/media-types.xhtml#image</a>
         </div>
       </div>
     </body>
