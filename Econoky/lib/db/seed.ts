@@ -49,9 +49,10 @@ export async function seedUsers(): Promise<void> {
 
   for (const userData of seedUsersData) {
     const existingUser = await Profile.findOne({ email: userData.email.toLowerCase() })
+    const hashedPassword = await bcrypt.hash(userData.password, 10)
     
     if (existingUser) {
-      // Update existing user to ensure correct role and verified status
+      // Update existing user to ensure correct role, verified status, and password
       await Profile.updateOne(
         { email: userData.email.toLowerCase() },
         {
@@ -59,14 +60,13 @@ export async function seedUsers(): Promise<void> {
             role: userData.role,
             is_verified: userData.is_verified,
             full_name: userData.full_name,
+            password: hashedPassword,
           },
         }
       )
       console.log(`Updated existing user: ${userData.email}`)
     } else {
       // Create new user with hashed password
-      const hashedPassword = await bcrypt.hash(userData.password, 10)
-      
       await Profile.create({
         email: userData.email.toLowerCase(),
         password: hashedPassword,
