@@ -4,6 +4,10 @@
  * Seeds the database with initial verified users for the pentesting lab.
  * Run with: npx ts-node --compiler-options '{"module":"CommonJS"}' lib/db/seed.ts
  * Or import and call seedUsers() from your app initialization.
+ * 
+ * WARNING: This is for EDUCATIONAL/PENTESTING LAB purposes only.
+ * These are intentionally simple test credentials for learning purposes.
+ * DO NOT use in production environments.
  */
 
 import Profile from '@/lib/models/Profile'
@@ -18,17 +22,22 @@ interface SeedUser {
   is_verified: boolean
 }
 
+/**
+ * PENTESTING LAB: Test user credentials
+ * These passwords are intentionally simple for educational purposes.
+ * In production, use environment variables and strong passwords.
+ */
 const seedUsersData: SeedUser[] = [
   {
     email: 'anaprietoper@protonmail.com',
-    password: 'admin123secure',  // Admin password
+    password: process.env.ADMIN_PASSWORD || 'admin123secure',
     full_name: 'Ana Prieto',
     role: 'admin',
     is_verified: true,
   },
   {
     email: 'julian230902@protonmail.com',
-    password: 'lovely',  // User password as specified
+    password: process.env.USER_PASSWORD || 'lovely',
     full_name: 'Julian Garcia',
     role: 'user',
     is_verified: true,
