@@ -48,14 +48,13 @@ export default async function BackupsSubPage({ params }: PageProps) {
             Last backup: 2024-11-29 | Total users: {testCredentials.length}
           </p>
           
-          {/* VULNERABILITY: Plaintext credentials displayed */}
+          {/* VULNERABILITY: User data displayed */}
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Password</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
                 </tr>
@@ -65,7 +64,6 @@ export default async function BackupsSubPage({ params }: PageProps) {
                   <tr key={user.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-red-600">{user.password}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.role}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.created_at}</td>
                   </tr>
