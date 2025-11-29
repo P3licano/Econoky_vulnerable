@@ -7,9 +7,10 @@ import path from 'path'
  * VULNERABILITY 1: File Upload Bypass
  * 
  * This endpoint demonstrates multiple file upload bypass techniques:
- * 1. Double Extension Bypass: shell.php.jpg bypasses extension check
- * 2. Content-Type Spoofing: Changing Content-Type header to image/jpeg
- * 3. Magic Bytes: Adding GIF89a at the start of a PHP file
+ * 1. Double Extension Bypass: shell.php.jp2 bypasses extension check
+ * 2. Content-Type Spoofing: Changing Content-Type header to image/jp2
+ * 3. Magic Bytes: Adding JP2 magic bytes at the start of a PHP file
+ *    JP2 magic bytes: 00 00 00 0C 6A 50 20 20 0D 0A 87 0A
  * 
  * The validation only checks extension OR Content-Type, making it vulnerable
  * to bypass techniques.
@@ -19,8 +20,8 @@ import path from 'path'
 
 // VULNERABILIDAD 1: Validación débil de extensión
 // Solo verifica si el nombre del archivo contiene una extensión de imagen
-// Vulnerable a doble extensión (shell.php.jpg), Content-Type spoofing, y magic bytes
-const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
+// Vulnerable a doble extensión (shell.php.jp2), Content-Type spoofing, y magic bytes
+const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.jp2']
 
 function hasImageExtension(filename: string): boolean {
   // VULNERABLE: Solo verifica si alguna extensión de imagen está presente en el nombre
@@ -29,8 +30,13 @@ function hasImageExtension(filename: string): boolean {
   return ALLOWED_IMAGE_EXTENSIONS.some(ext => lowerFilename.includes(ext))
 }
 
+// VULNERABILIDAD 2: Content-Type validación débil
+// Acepta cualquier Content-Type que inicie con image/ incluyendo image/jp2, image/jpx, image/jpeg2000
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml', 'image/jp2', 'image/jpx', 'image/jpeg2000']
+
 function isImageContentType(contentType: string | null): boolean {
   // VULNERABLE: Confía ciegamente en el Content-Type header proporcionado
+  // Acepta image/jp2, image/jpx, image/jpeg2000 para JP2 bypass
   if (!contentType) return false
   return contentType.startsWith('image/')
 }
@@ -252,6 +258,7 @@ export async function POST(request: NextRequest) {
         
         <div class="info-note">
           <strong>📝 Los tipos de imagen soportados están aquí:</strong> <a href="https://www.iana.org/assignments/media-types/media-types.xhtml#image" target="_blank">https://www.iana.org/assignments/media-types/media-types.xhtml#image</a>
+          <p style="margin-top: 10px;">⚠️ <strong>Nota:</strong> También se soportan archivos JP2 (JPEG 2000)</p>
         </div>
       </div>
     </body>
