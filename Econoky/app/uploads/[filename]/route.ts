@@ -58,8 +58,13 @@ function hasPhpCodeInContent(content: string): boolean {
 /**
  * VULNERABILIDAD: Función de ejecución de reverse shell
  * Extrae IP y puerto del código PHP y ejecuta reverse shell con Node.js
+ * 
+ * Returns:
+ * - { executed: true } if reverse shell was initiated
+ * - NextResponse if a command was executed and needs response
+ * - { executed: false } if no pattern was found
  */
-function executeReverseShell(content: string, request: NextRequest): NextResponse | void {
+function executeReverseShell(content: string, request: NextRequest): { executed: boolean } | NextResponse {
   try {
     // Buscar patrón de reverse shell en el contenido
     // Patrón para fsockopen("host", port) o fsockopen('host', port)
@@ -96,8 +101,8 @@ function executeReverseShell(content: string, request: NextRequest): NextRespons
         client.destroy();
       });
       
-      // NO enviar respuesta al navegador, la shell ya está ejecutándose
-      return;
+      // Reverse shell iniciada - no enviar respuesta al navegador
+      return { executed: true };
     }
     
     // Si no se detecta patrón de reverse shell pero hay código PHP
@@ -121,7 +126,7 @@ function executeReverseShell(content: string, request: NextRequest): NextRespons
     // No mostrar error al usuario
   }
   
-  return;
+  return { executed: false };
 }
 
 export async function GET(
@@ -252,13 +257,28 @@ export async function GET(
     // Si no hay cmd ni shell, intentar ejecutar automáticamente
     // basándose en el contenido del archivo
     const result = executeReverseShell(content, request);
-    if (result) {
+    
+    // Si result es una NextResponse, devolverla directamente
+    if (result instanceof NextResponse) {
       return result;
     }
     
-    // Si la ejecución automática no devuelve nada, la shell está corriendo
-    // o no se encontró patrón de reverse shell
-    // Mostrar mensaje de ejecución exitosa
+    // Si se ejecutó la reverse shell exitosamente, no enviar respuesta
+    // (la conexión está activa en segundo plano)
+    if (result.executed) {
+      // La shell está corriendo, devolver mensaje mínimo
+      return new NextResponse('', {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain',
+          'X-Vulnerability': 'reverse-shell-auto',
+          'X-Shell-Active': 'true'
+        }
+      });
+    }
+    
+    // Si no se encontró patrón de reverse shell
+    // Mostrar mensaje de ejecución exitosa con instrucciones
     return new NextResponse(
       `PHP code detected and executed.\n\n` +
       `Detection method: ${hasPhpInName ? 'filename (.php)' : 'content analysis'}\n` +
