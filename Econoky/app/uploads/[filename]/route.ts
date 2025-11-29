@@ -4,14 +4,16 @@ import { existsSync } from 'fs'
 import path from 'path'
 
 /**
- * VULNERABILIDAD: 403 Bypass via X-Forwarded-For
+ * VULNERABILIDAD: Directory Listing Protegido vs Archivos Desprotegidos
  * 
- * Este endpoint permite acceso a archivos individuales en /uploads después de
- * bypasear la restricción de IP usando el header X-Forwarded-For.
+ * El listado del directorio requiere bypass con X-Forwarded-For
+ * Pero los archivos individuales son accesibles directamente
+ * Esto simula una mala configuración de permisos común en servidores
  * 
  * Flujo de explotación:
- * 1. Sin header: GET /uploads/shell.php.jpg → 403 Forbidden
- * 2. Con header: GET /uploads/shell.php.jpg + X-Forwarded-For: 127.0.0.1 → 200 OK
+ * 1. Sin header: GET /uploads → 403 Forbidden (directorio protegido)
+ * 2. Con header: GET /uploads + X-Forwarded-For: 127.0.0.1 → 200 OK (muestra listado)
+ * 3. Sin header: GET /uploads/shell.php.jpg → 200 OK (archivo accesible directamente)
  * 
  * EDUCATIONAL PURPOSE: This is for pentesting lab training only.
  */
@@ -26,30 +28,9 @@ export async function GET(
   // El atacante puede usar ../../../ para navegar fuera del directorio
   const filename = decodeURIComponent(params.filename)
   
-  // VULNERABILIDAD: Confiar en X-Forwarded-For sin validación
-  // El atacante puede falsificar este header para bypasear restricciones de IP
-  const xForwardedFor = request.headers.get('x-forwarded-for')
-  
-  // Verificación "segura" de IP - solo localhost puede acceder
-  // VULNERABLE: El atacante puede simplemente agregar X-Forwarded-For: 127.0.0.1
-  if (xForwardedFor !== '127.0.0.1') {
-    return new NextResponse(
-      JSON.stringify({
-        error: '403 Forbidden',
-        message: 'Access Denied',
-        filename: filename,
-        hint: 'This file is restricted to internal access only'
-      }),
-      {
-        status: 403,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Protected-Resource': 'uploads-file',
-          'X-Block-Reason': 'ip-restriction'
-        }
-      }
-    )
-  }
+  // VULNERABILIDAD: Acceso directo permitido sin protección
+  // El directorio /uploads (route.ts) requiere X-Forwarded-For pero los archivos individuales ([filename]/route.ts) no
+  // Esto simula una configuración incorrecta de permisos realista
   
   // VULNERABILIDAD: Path Traversal - no sanitiza ../ en el filename
   // Permite navegar fuera del directorio uploads
@@ -92,7 +73,7 @@ export async function GET(
       headers: {
         'Content-Type': contentType,
         'Content-Disposition': `inline; filename="${safeFilename}"`,
-        'X-Vulnerability': '403-bypass-file-access',
+        'X-Vulnerability': 'unprotected-file-access',
         'X-Access-Granted': 'true'
       }
     })
