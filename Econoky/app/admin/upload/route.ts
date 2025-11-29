@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       }
       
       // Guardar archivo en el directorio de uploads
-      const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
+      const uploadsDir = path.join(process.cwd(), 'uploads')
       
       // Crear directorio si no existe
       if (!existsSync(uploadsDir)) {
