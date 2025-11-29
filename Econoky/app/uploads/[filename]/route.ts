@@ -29,7 +29,7 @@ export async function GET(
   const filename = decodeURIComponent(params.filename)
   
   // VULNERABILIDAD: Acceso directo permitido sin protección
-  // El directorio /uploads requiere X-Forwarded-For pero los archivos individuales no
+  // El directorio /uploads (route.ts) requiere X-Forwarded-For pero los archivos individuales ([filename]/route.ts) no
   // Esto simula una configuración incorrecta de permisos realista
   
   // VULNERABILIDAD: Path Traversal - no sanitiza ../ en el filename
@@ -73,7 +73,7 @@ export async function GET(
       headers: {
         'Content-Type': contentType,
         'Content-Disposition': `inline; filename="${safeFilename}"`,
-        'X-Vulnerability': '403-bypass-file-access',
+        'X-Vulnerability': 'unprotected-file-access',
         'X-Access-Granted': 'true'
       }
     })
