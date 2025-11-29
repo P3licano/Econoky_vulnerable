@@ -32,7 +32,6 @@ function hasImageExtension(filename: string): boolean {
 
 // VULNERABILIDAD 2: Content-Type validación débil
 // Acepta cualquier Content-Type que inicie con image/ incluyendo image/jp2, image/jpx, image/jpeg2000
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml', 'image/jp2', 'image/jpx', 'image/jpeg2000']
 
 function isImageContentType(contentType: string | null): boolean {
   // VULNERABLE: Confía ciegamente en el Content-Type header proporcionado
