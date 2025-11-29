@@ -30,7 +30,7 @@ interface SeedUser {
 const seedUsersData: SeedUser[] = [
   {
     email: 'anaprietoper@protonmail.com',
-    password: process.env.ADMIN_PASSWORD || 'admin123secure',
+    password: process.env.ADMIN_PASSWORD || '123456',
     full_name: 'Ana Prieto',
     role: 'admin',
     is_verified: true,
