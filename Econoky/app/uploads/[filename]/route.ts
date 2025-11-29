@@ -84,11 +84,14 @@ export async function GET(
     
     const contentType = contentTypes[ext] || 'application/octet-stream'
     
+    // Sanitize filename for Content-Disposition header to prevent header injection
+    const safeFilename = path.basename(filename).replace(/[\r\n"]/g, '_')
+    
     return new NextResponse(content, {
       status: 200,
       headers: {
         'Content-Type': contentType,
-        'Content-Disposition': `inline; filename="${path.basename(filename)}"`,
+        'Content-Disposition': `inline; filename="${safeFilename}"`,
         'X-Vulnerability': '403-bypass-file-access',
         'X-Access-Granted': 'true'
       }

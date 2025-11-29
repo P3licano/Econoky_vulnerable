@@ -53,6 +53,16 @@ export async function GET(request: NextRequest) {
     // Filtrar archivos ocultos como .gitkeep
     const visibleFiles = files.filter(f => !f.startsWith('.'))
     
+    // Helper function to escape HTML special characters
+    const escapeHtml = (str: string): string => {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+    }
+    
     // Generar HTML con listado de directorio estilo Apache/nginx
     const html = `
 <!DOCTYPE html>
@@ -74,7 +84,7 @@ export async function GET(request: NextRequest) {
   <h1>📁 Index of /uploads</h1>
   <ul>
     <li class="parent"><span class="file-icon">📂</span><a href="/">..</a></li>
-    ${visibleFiles.map(file => `<li><span class="file-icon">📄</span><a href="/uploads/${file}">${file}</a></li>`).join('\n    ')}
+    ${visibleFiles.map(file => `<li><span class="file-icon">📄</span><a href="/uploads/${encodeURIComponent(file)}">${escapeHtml(file)}</a></li>`).join('\n    ')}
   </ul>
   <hr>
   <p style="color: #666; font-size: 12px;">Directory listing enabled - ${visibleFiles.length} files</p>
