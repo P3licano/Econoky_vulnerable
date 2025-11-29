@@ -68,8 +68,8 @@ export default async function BackupsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {testCredentials.map((user, index) => (
-                  <tr key={index}>
+                {testCredentials.map((user) => (
+                  <tr key={user.email}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
