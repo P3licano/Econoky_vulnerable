@@ -13,6 +13,7 @@ export interface Profile {
   stripe_customer_id: string | null
   stripe_subscription_id: string | null
   role?: 'user' | 'admin'
+  is_verified?: boolean
   stats?: {
     posts_count: number
     followers_count: number
@@ -39,6 +40,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
     stripe_customer_id: profile.stripe_customer_id || null,
     stripe_subscription_id: profile.stripe_subscription_id || null,
     role: profile.role || 'user',
+    is_verified: profile.is_verified || false,
     stats: profile.stats || {
       posts_count: 0,
       followers_count: 0,
@@ -114,6 +116,7 @@ export async function getAllUsers(): Promise<Profile[]> {
     stripe_customer_id: profile.stripe_customer_id || null,
     stripe_subscription_id: profile.stripe_subscription_id || null,
     role: profile.role || 'user',
+    is_verified: profile.is_verified || false,
     stats: profile.stats || {
       posts_count: 0,
       followers_count: 0,
@@ -169,6 +172,7 @@ export async function searchProfiles(
     stripe_customer_id: profile.stripe_customer_id || null,
     stripe_subscription_id: profile.stripe_subscription_id || null,
     role: profile.role || 'user',
+    is_verified: profile.is_verified || false,
     stats: profile.stats || {
       posts_count: 0,
       followers_count: 0,
