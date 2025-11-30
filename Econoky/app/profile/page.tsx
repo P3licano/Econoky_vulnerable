@@ -7,7 +7,7 @@ import { Shield, CheckCircle } from 'lucide-react'
 export default async function ProfilePage() {
   const user = await getCurrentUser()
   
-  if (!user) {
+  if (! user) {
     redirect('/auth/login')
   }
 
@@ -36,7 +36,27 @@ export default async function ProfilePage() {
         <h2 className="text-xl font-bold mb-4 text-black">Información de la cuenta</h2>
         <div className="space-y-2">
           <p className="text-black"><span className="font-semibold text-black">Email:</span> {user.email}</p>
-          <p className="text-black"><span className="font-semibold text-black">Saldo:</span> €{profile?.balance?.toFixed(2) || '0.00'}</p>
+          
+          {/* Nombre completo - VULNERABLE A XSS */}
+          {profile?.full_name && (
+            <p className="text-black">
+              <span className="font-semibold text-black">Nombre:</span>{' '}
+              <span dangerouslySetInnerHTML={{ __html: profile.full_name }} />
+            </p>
+          )}
+          
+          {/* Biografía - VULNERABLE A XSS */}
+          {profile?.bio && (
+            <div className="text-black">
+              <span className="font-semibold text-black">Bio:</span>
+              <div 
+                className="mt-1 p-2 bg-gray-50 rounded"
+                dangerouslySetInnerHTML={{ __html: profile. bio }} 
+              />
+            </div>
+          )}
+          
+          <p className="text-black"><span className="font-semibold text-black">Saldo:</span> €{profile?.balance?. toFixed(2) || '0. 00'}</p>
           <p className="text-black"><span className="font-semibold text-black">Suscripción:</span> {profile?.subscription_status || 'Free'}</p>
           <p className="text-black">
             <span className="font-semibold text-black">Rol:</span>{' '}

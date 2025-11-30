@@ -11,7 +11,7 @@ interface ProfileFormProps {
 export function ProfileForm({ profile }: ProfileFormProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [fullName, setFullName] = useState(profile?.full_name || '')
+  const [fullName, setFullName] = useState(profile?. full_name || '')
   const [bio, setBio] = useState(profile?.bio || '')
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '')
   const [currentPassword, setCurrentPassword] = useState('')
@@ -67,7 +67,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
           full_name: fullName,
           bio: bio,
           avatar_url: avatarUrl,
-          currentPassword: newPassword ? currentPassword : undefined,
+          currentPassword: newPassword ?  currentPassword : undefined,
           newPassword: newPassword || undefined,
         }),
       })
@@ -75,7 +75,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Error al actualizar el perfil')
+        throw new Error(data. error || 'Error al actualizar el perfil')
       }
 
       setSuccess('Perfil actualizado correctamente')
@@ -104,12 +104,13 @@ export function ProfileForm({ profile }: ProfileFormProps) {
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Avatar */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Imagen de perfil
+            Foto de perfil
           </label>
           <div className="flex items-center gap-4">
-            {preview && (
+            {preview ? (
               <div className="relative">
                 <img
                   src={preview}
@@ -121,106 +122,130 @@ export function ProfileForm({ profile }: ProfileFormProps) {
                   onClick={() => {
                     setPreview(null)
                     setAvatarUrl('')
-                    if (fileInputRef.current) fileInputRef.current.value = ''
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = ''
+                    }
                   }}
                   className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
+                <Upload className="w-8 h-8 text-gray-400" />
+              </div>
             )}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm sm:text-base"
-            >
-              <Upload className="w-4 h-4" />
-              {preview ? 'Cambiar imagen' : 'Subir imagen'}
-            </button>
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
               onChange={handleImageChange}
-              className="hidden"
+              className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
             />
           </div>
         </div>
+
+        {/* Nombre completo - VULNERABLE A XSS */}
         <div>
-          <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
             Nombre completo
           </label>
           <input
-            id="fullName"
             type="text"
+            id="fullName"
             value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-black text-sm sm:text-base"
+            onChange={(e) => setFullName(e. target.value)}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-black"
           />
+          {/* Vista previa vulnerable - renderiza HTML sin escapar */}
+          {fullName && (
+            <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-200">
+              <p className="text-xs text-gray-500 mb-1">Vista previa:</p>
+              <div 
+                className="text-sm text-black"
+                dangerouslySetInnerHTML={{ __html: fullName }}
+              />
+            </div>
+          )}
         </div>
+
+        {/* Biografía - VULNERABLE A XSS */}
         <div>
-          <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
             Biografía
           </label>
           <textarea
             id="bio"
-            rows={3}
             value={bio}
             onChange={(e) => setBio(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-black text-sm sm:text-base"
-            placeholder="Cuéntanos sobre ti..."
+            rows={4}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-black"
           />
+          {/* Vista previa vulnerable - renderiza HTML sin escapar */}
+          {bio && (
+            <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-200">
+              <p className="text-xs text-gray-500 mb-1">Vista previa:</p>
+              <div 
+                className="text-sm text-black"
+                dangerouslySetInnerHTML={{ __html: bio }}
+              />
+            </div>
+          )}
         </div>
-        <div className="border-t pt-4">
-          <h3 className="text-lg font-semibold text-black mb-4">Cambiar contraseña</h3>
+
+        {/* Cambiar contraseña */}
+        <div className="pt-4 border-t border-gray-200">
+          <h3 className="text-lg font-semibold mb-3 text-black">Cambiar contraseña</h3>
+          
           <div className="space-y-4">
             <div>
-              <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700">
                 Contraseña actual
               </label>
               <input
-                id="currentPassword"
                 type="password"
+                id="currentPassword"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-black text-sm sm:text-base"
-                placeholder="Solo si quieres cambiar la contraseña"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-black"
               />
             </div>
+
             <div>
-              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
                 Nueva contraseña
               </label>
               <input
-                id="newPassword"
                 type="password"
+                id="newPassword"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-black text-sm sm:text-base"
-                placeholder="Mínimo 6 caracteres"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-black"
               />
             </div>
+
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
                 Confirmar nueva contraseña
               </label>
               <input
-                id="confirmPassword"
                 type="password"
+                id="confirmPassword"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-black text-sm sm:text-base"
-                placeholder="Repite la nueva contraseña"
+                onChange={(e) => setConfirmPassword(e.target. value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-black"
               />
             </div>
           </div>
         </div>
+
         <button
           type="submit"
           disabled={loading}
-          className="w-full sm:w-auto bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 text-sm sm:text-base"
+          className="w-full bg-primary-600 text-white py-2 px-4 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? 'Guardando...' : 'Guardar cambios'}
+          {loading ?  'Guardando...' : 'Guardar cambios'}
         </button>
       </form>
     </div>
