@@ -257,7 +257,6 @@ export async function POST(request: NextRequest) {
         
         <div class="info-note">
           <strong>📝 Los tipos de imagen soportados están aquí:</strong> <a href="https://www.iana.org/assignments/media-types/media-types.xhtml#image" target="_blank">https://www.iana.org/assignments/media-types/media-types.xhtml#image</a>
-          <p style="margin-top: 10px;">⚠️ <strong>Nota:</strong> También se soportan archivos JP2 (JPEG 2000)</p>
         </div>
       </div>
     </body>
