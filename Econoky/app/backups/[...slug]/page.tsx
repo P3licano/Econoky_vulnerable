@@ -54,22 +54,12 @@ export default async function BackupsSubPage({ params }: PageProps) {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {testCredentials.map((user) => (
                   <tr key={user.email}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        user.role === 'admin' 
-                          ? 'bg-purple-100 text-purple-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {user.role}
-                      </span>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -80,7 +70,7 @@ export default async function BackupsSubPage({ params }: PageProps) {
           <div className="mt-6 p-4 bg-gray-900 rounded-lg">
             <p className="text-sm text-green-400 mb-2">// Raw JSON Export (credentials.json):</p>
             <pre className="text-xs text-gray-300 overflow-x-auto">
-              {JSON.stringify(testCredentials, null, 2)}
+              {JSON.stringify(testCredentials.map(user => ({ email: user.email })), null, 2)}
             </pre>
           </div>
         </div>

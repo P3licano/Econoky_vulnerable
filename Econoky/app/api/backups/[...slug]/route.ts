@@ -38,7 +38,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     data: {
       backup_date: '2024-11-29',
       backup_type: 'user_credentials',
-      users: testCredentials
+      users: testCredentials.map(user => ({ email: user.email }))
     }
   });
 }
