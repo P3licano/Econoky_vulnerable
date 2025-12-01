@@ -86,11 +86,15 @@ export async function isAdmin(userId: string): Promise<boolean> {
 
 export async function setAuthToken(token: string) {
   const cookieStore = await cookies()
+  const isProduction = process.env.NODE_ENV === 'production'
+  const useSecure = isProduction || process.env.ENABLE_SECURE_COOKIES === 'true'
+  
   cookieStore.set('auth-token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: useSecure,
+    sameSite: useSecure ? 'none' : 'lax',
     maxAge: 60 * 60 * 24 * 7, // 7 días
+    path: '/',
   })
 }
 

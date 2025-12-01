@@ -142,6 +142,10 @@ STRIPE_WEBHOOK_SECRET=whsec_tu_webhook_secret_aqui
 
 # Next.js
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Habilitar cookies seguras para acceso externo (usar con HTTPS)
+# Dejar comentado para desarrollo en localhost HTTP
+# ENABLE_SECURE_COOKIES=true
 ```
 
 **Importante**: 
@@ -218,6 +222,76 @@ Para producción, usa **MongoDB Atlas** (recomendado):
    - `NEXT_PUBLIC_APP_URL` con tu dominio de Vercel
 4. Configura el webhook de Stripe con la URL de producción: `https://tu-dominio.vercel.app/api/stripe/webhook`
 5. ¡Despliega!
+
+## Acceso desde IP Externa
+
+El sistema de login está configurado para funcionar tanto en localhost como con IPs externas. Dependiendo de tu configuración, sigue las instrucciones correspondientes:
+
+### Para desarrollo local (localhost)
+
+No se requieren cambios adicionales. El sistema funciona por defecto con:
+- `http://localhost:3000`
+- Cookies configuradas con `sameSite: 'lax'` y `secure: false`
+
+### Para acceso desde IP externa con HTTP
+
+Para acceder desde otra computadora en la misma red (por ejemplo, `http://192.168.x.x:3000`):
+
+1. Mantén `ENABLE_SECURE_COOKIES` deshabilitado (comentado o no definido)
+2. Inicia el servidor con:
+   ```bash
+   npm run dev -- -H 0.0.0.0
+   ```
+3. Accede desde otros dispositivos usando la IP local de tu máquina
+
+**Nota**: Algunos navegadores modernos pueden restringir cookies en conexiones HTTP no seguras. Si experimentas problemas de autenticación, considera usar HTTPS.
+
+### Para acceso desde IP externa con HTTPS
+
+Para un acceso más seguro desde IPs externas, puedes usar HTTPS:
+
+#### Opción 1: Usar ngrok (recomendado para desarrollo)
+
+1. Instala ngrok: [https://ngrok.com/download](https://ngrok.com/download)
+2. Inicia tu servidor de desarrollo:
+   ```bash
+   npm run dev
+   ```
+3. En otra terminal, ejecuta:
+   ```bash
+   ngrok http 3000
+   ```
+4. Ngrok te dará una URL HTTPS pública
+5. Establece en tu `.env.local`:
+   ```env
+   ENABLE_SECURE_COOKIES=true
+   ```
+6. Reinicia el servidor de desarrollo
+
+#### Opción 2: Certificado autofirmado
+
+1. Genera un certificado autofirmado para tu IP
+2. Configura Next.js para usar HTTPS
+3. Establece en tu `.env.local`:
+   ```env
+   ENABLE_SECURE_COOKIES=true
+   ```
+4. Acepta el certificado en tu navegador
+
+### Configuración de cookies
+
+La configuración de cookies se ajusta automáticamente:
+
+| Entorno | `secure` | `sameSite` |
+|---------|----------|------------|
+| Desarrollo (HTTP) | `false` | `'lax'` |
+| Desarrollo con `ENABLE_SECURE_COOKIES=true` | `true` | `'none'` |
+| Producción (`NODE_ENV=production`) | `true` | `'none'` |
+
+**Importante**: 
+- `httpOnly` siempre está habilitado para protección contra XSS
+- No se establece el parámetro `domain`, lo que permite funcionar con IPs
+- La cookie expira en 7 días
 
 ## Solución de Problemas
 
