@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Check } from 'lucide-react'
-import { CheckoutButton } from '@/components/CheckoutButton'
+import { VulnerableCheckoutButton } from '@/components/VulnerableCheckoutButton'
 import { getCurrentUser } from '@/lib/auth'
 import { getProfile } from '@/lib/db/profiles'
 
@@ -12,24 +12,23 @@ export default async function PlansPage() {
     redirect('/auth/login')
   }
 
-  // Obtener perfil del usuario desde MongoDB
   const profile = await getProfile(user.id)
 
   const plans = [
     {
       name: 'Gratis',
-      price: '0',
+      price: 0,
       period: 'Siempre',
       features: [
         'Acceso a calculadoras financieras',
         'Participación en la comunidad',
         'Herramientas básicas',
       ],
-      current: profile?.subscription_status === 'free',
+      current: profile?. subscription_status === 'free',
     },
     {
       name: 'Pro',
-      price: '4.99',
+      price: 4.99,
       period: 'mes',
       features: [
         'Todo lo del plan Gratis',
@@ -39,7 +38,6 @@ export default async function PlansPage() {
         'Soporte prioritario',
       ],
       current: profile?.subscription_status === 'pro',
-      stripePriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID,
     },
   ]
 
@@ -71,19 +69,19 @@ export default async function PlansPage() {
               )}
             </div>
             <ul className="space-y-3 mb-8">
-              {plan.features.map((feature, index) => (
+              {plan.features. map((feature, index) => (
                 <li key={index} className="flex items-start">
                   <Check className="w-5 h-5 text-primary-600 mr-2 flex-shrink-0 mt-0.5" />
                   <span className="text-gray-700">{feature}</span>
                 </li>
               ))}
             </ul>
-            {plan.current ? (
+            {plan.current ?  (
               <div className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg text-center font-semibold">
                 Plan actual
               </div>
-            ) : plan.name === 'Pro' && plan.stripePriceId ? (
-              <CheckoutButton priceId={plan.stripePriceId} />
+            ) : plan.name === 'Pro' ?  (
+              <VulnerableCheckoutButton planName={plan.name} price={plan.price} />
             ) : (
               <Link
                 href="/auth/register"
@@ -98,4 +96,3 @@ export default async function PlansPage() {
     </div>
   )
 }
-
