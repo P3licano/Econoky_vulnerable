@@ -1,23 +1,10 @@
-# VULNERABILITY: Information Disclosure via robots.txt
-# This file inadvertently reveals the existence of sensitive directories
-# that should remain hidden. A pentester scanning robots.txt would
-# discover paths that the organization intended to keep secret.
-
 User-agent: *
 Allow: /
 Allow: /blog
 Allow: /services
 Allow: /community
-
-# Standard disallow rules
 Disallow: /admin
 Disallow: /api
 Disallow: /dashboard
-
-# VULNERABILITY: The following line exposes the existence of a backup directory
-# This is a common misconfiguration where administrators try to "hide" sensitive
-# paths by adding them to robots.txt, not realizing this actually advertises them
 Disallow: /backups
-
-# Sitemap
 Sitemap: https://econoky.com/sitemap.xml
