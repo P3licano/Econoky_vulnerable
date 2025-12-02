@@ -2,42 +2,40 @@ import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path'
+import { getCurrentUser } from '@/lib/auth'
+import { getProfile } from '@/lib/db/profiles'
 
 /**
  * VULNERABILITY 1: File Upload Bypass
  * 
- * This endpoint demonstrates multiple file upload bypass techniques:
- * 1. Double Extension Bypass: shell.php.jp2 bypasses extension check
- * 2. Content-Type Spoofing: Changing Content-Type header to image/jp2
- * 3. Magic Bytes: Adding JP2 magic bytes at the start of a PHP file
+ * This endpoint demonstrates a file upload bypass technique:
+ * Magic Bytes: Adding JP2 magic bytes at the start of a file
  *    JP2 magic bytes: 00 00 00 0C 6A 50 20 20 0D 0A 87 0A
  * 
- * The validation only checks extension OR Content-Type, making it vulnerable
- * to bypass techniques.
+ * The validation only checks for JP2 magic bytes at the beginning of the file.
+ * Only authenticated admin users with email 'anaprietoper@econoky.com' can access.
  * 
  * EDUCATIONAL PURPOSE: This is for pentesting lab training only.
  */
 
-// VULNERABILIDAD 1: Validación débil de extensión
-// Solo verifica si el nombre del archivo contiene una extensión de imagen
-// Vulnerable a doble extensión (shell.php.jp2), Content-Type spoofing, y magic bytes
-const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.jp2']
-
-function hasImageExtension(filename: string): boolean {
-  // VULNERABLE: Solo verifica si alguna extensión de imagen está presente en el nombre
-  // NO verifica que sea la última extensión
-  const lowerFilename = filename.toLowerCase()
-  return ALLOWED_IMAGE_EXTENSIONS.some(ext => lowerFilename.includes(ext))
-}
-
-// VULNERABILIDAD 2: Content-Type validación débil
-// Acepta cualquier Content-Type que inicie con image/ incluyendo image/jp2, image/jpx, image/jpeg2000
-
-function isImageContentType(contentType: string | null): boolean {
-  // VULNERABLE: Confía ciegamente en el Content-Type header proporcionado
-  // Acepta image/jp2, image/jpx, image/jpeg2000 para JP2 bypass
-  if (!contentType) return false
-  return contentType.startsWith('image/')
+/**
+ * Validates if a buffer starts with JP2 magic bytes
+ * JP2 magic bytes: 00 00 00 0C 6A 50 20 20 0D 0A 87 0A
+ */
+function hasJP2MagicBytes(buffer: Buffer): boolean {
+  const jp2MagicBytes = Buffer.from([0x00, 0x00, 0x00, 0x0C, 0x6A, 0x50, 0x20, 0x20, 0x0D, 0x0A, 0x87, 0x0A])
+  
+  if (buffer.length < jp2MagicBytes.length) {
+    return false
+  }
+  
+  for (let i = 0; i < jp2MagicBytes.length; i++) {
+    if (buffer[i] !== jp2MagicBytes[i]) {
+      return false
+    }
+  }
+  
+  return true
 }
 
 /**
@@ -65,9 +63,27 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST handler - File Upload with vulnerable validation
- * VULNERABILITY: Weak validation allows multiple bypass techniques
+ * VULNERABILITY: Weak validation allows JP2 magic bytes bypass
  */
 export async function POST(request: NextRequest) {
+  // Authentication check - verify user is authenticated
+  const user = await getCurrentUser()
+  if (!user) {
+    return new NextResponse(
+      JSON.stringify({ error: 'No autenticado. Debe iniciar sesión.' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+  
+  // Authorization check - verify user is admin with specific email
+  const profile = await getProfile(user.id)
+  if (profile?.role !== 'admin' || user.email !== 'anaprietoper@econoky.com') {
+    return new NextResponse(
+      JSON.stringify({ error: 'Acceso denegado. Solo anaprietoper@econoky.com puede acceder a este recurso.' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+  
   const contentType = request.headers.get('content-type') || ''
   
   // Check if it's a file upload request
@@ -84,27 +100,16 @@ export async function POST(request: NextRequest) {
       }
       
       const filename = file.name
-      const fileContentType = file.type
       
-      // VULNERABILIDAD 1: Validación débil
-      // Solo verifica extensión O Content-Type, no ambos
-      // Permite bypass con doble extensión, content-type spoofing, o magic bytes
-      const hasValidExtension = hasImageExtension(filename)
-      const hasValidContentType = isImageContentType(fileContentType)
+      // Get file buffer for magic bytes validation
+      const bytes = await file.arrayBuffer()
+      const buffer = Buffer.from(bytes)
       
-      // Si el archivo es .php sin ninguna extensión de imagen, rechazar
-      // PERO si tiene doble extensión (shell.php.jpg) o content-type image/*, permitir
-      if (filename.toLowerCase().endsWith('.php') && !hasValidExtension && !hasValidContentType) {
+      // VULNERABILIDAD: Validación solo de magic bytes JP2
+      // Solo acepta archivos que comiencen con los magic bytes JP2
+      if (!hasJP2MagicBytes(buffer)) {
         return new NextResponse(
-          JSON.stringify({ error: 'Solo se permiten archivos de imagen' }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        )
-      }
-      
-      // Si no tiene ninguna validación de imagen, rechazar
-      if (!hasValidExtension && !hasValidContentType) {
-        return new NextResponse(
-          JSON.stringify({ error: 'Solo se permiten archivos de imagen' }),
+          JSON.stringify({ error: 'Solo se permiten archivos JP2 con magic bytes válidos' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
         )
       }
@@ -116,9 +121,6 @@ export async function POST(request: NextRequest) {
       if (!existsSync(uploadsDir)) {
         await mkdir(uploadsDir, { recursive: true })
       }
-      
-      const bytes = await file.arrayBuffer()
-      const buffer = Buffer.from(bytes)
       
       // VULNERABLE: Guarda el archivo con su nombre original sin sanitizar
       const filePath = path.join(uploadsDir, filename)
@@ -256,7 +258,7 @@ export async function POST(request: NextRequest) {
         </form>
         
         <div class="info-note">
-          <strong>📝 Los tipos de imagen soportados están aquí:</strong> <a href="https://www.iana.org/assignments/media-types/media-types.xhtml#image" target="_blank">https://www.iana.org/assignments/media-types/media-types.xhtml#image</a>
+          <strong>📝 Solo archivos JP2 con magic bytes válidos son aceptados:</strong> Los archivos deben comenzar exactamente con los bytes: 00 00 00 0C 6A 50 20 20 0D 0A 87 0A
         </div>
       </div>
     </body>
