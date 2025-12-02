@@ -29,13 +29,7 @@ function hasJP2MagicBytes(buffer: Buffer): boolean {
     return false
   }
   
-  for (let i = 0; i < jp2MagicBytes.length; i++) {
-    if (buffer[i] !== jp2MagicBytes[i]) {
-      return false
-    }
-  }
-  
-  return true
+  return buffer.subarray(0, jp2MagicBytes.length).equals(jp2MagicBytes)
 }
 
 /**
