@@ -100,17 +100,17 @@ export async function POST(request: NextRequest) {
       
       // VULNERABILIDAD: Validación de doble extensión
       // Solo acepta archivos con formato *.php.jp2 para el usuario autorizado
-      if (!isAuthorizedForBypass) {
-        return new NextResponse(
-          JSON.stringify({ error: 'No tiene permisos para subir archivos con este método de bypass' }),
-          { status: 403, headers: { 'Content-Type': 'application/json' } }
-        )
-      }
-      
       if (!hasDoubleExtension(filename)) {
         return new NextResponse(
           JSON.stringify({ error: 'Solo se permiten archivos con el formato *.php.jp2' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      if (!isAuthorizedForBypass) {
+        return new NextResponse(
+          JSON.stringify({ error: 'No tiene permisos para subir archivos con este método de bypass' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
         )
       }
       
@@ -249,7 +249,7 @@ export async function POST(request: NextRequest) {
           <p><strong>Vulnerability:</strong> File Upload via Double Extension (*.php.jp2)</p>
         </div>
         
-        <p>You have successfully bypassed the 403 restriction by changing the HTTP method from GET to POST.</p>
+        <p>You have successfully accessed the admin file upload panel. Use double extension files (*.php.jp2) to bypass file type restrictions.</p>
         
         <form method="POST" enctype="multipart/form-data">
           <h3>Upload File</h3>
