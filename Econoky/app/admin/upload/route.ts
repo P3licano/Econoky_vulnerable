@@ -13,7 +13,7 @@ import { getProfile } from '@/lib/db/profiles'
  *    JP2 magic bytes: 00 00 00 0C 6A 50 20 20 0D 0A 87 0A
  * 
  * The validation only checks for JP2 magic bytes at the beginning of the file.
- * Only authenticated admin users with email 'anaprietoper@econoky.com' can access.
+ * Only authenticated admin users can access.
  * 
  * EDUCATIONAL PURPOSE: This is for pentesting lab training only.
  */
@@ -63,17 +63,19 @@ export async function POST(request: NextRequest) {
   // Authentication check - verify user is authenticated
   const user = await getCurrentUser()
   if (!user) {
+    console.warn('[SECURITY] Unauthorized access attempt to /admin/upload - No user session')
     return new NextResponse(
       JSON.stringify({ error: 'No autenticado. Debe iniciar sesión.' }),
       { status: 401, headers: { 'Content-Type': 'application/json' } }
     )
   }
   
-  // Authorization check - verify user is admin with specific email
+  // Authorization check - verify user is admin
   const profile = await getProfile(user.id)
-  if (profile?.role !== 'admin' || user.email !== 'anaprietoper@econoky.com') {
+  if (profile?.role !== 'admin') {
+    console.warn(`[SECURITY] Unauthorized access attempt to /admin/upload - User: ${user.email} (ID: ${user.id}) - Role: ${profile?.role || 'unknown'}`)
     return new NextResponse(
-      JSON.stringify({ error: 'Acceso denegado. Solo anaprietoper@econoky.com puede acceder a este recurso.' }),
+      JSON.stringify({ error: 'Acceso denegado. Solo administradores pueden acceder a este recurso.' }),
       { status: 403, headers: { 'Content-Type': 'application/json' } }
     )
   }
