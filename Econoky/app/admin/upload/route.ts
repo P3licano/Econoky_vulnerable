@@ -9,27 +9,21 @@ import { getProfile } from '@/lib/db/profiles'
  * VULNERABILITY 1: File Upload Bypass
  * 
  * This endpoint demonstrates a file upload bypass technique:
- * Magic Bytes: Adding JP2 magic bytes at the start of a file
- *    JP2 magic bytes: 00 00 00 0C 6A 50 20 20 0D 0A 87 0A
+ * Double Extension: Using double extension to bypass file type restrictions
+ *    Format: shell.php.jp2
  * 
- * The validation only checks for JP2 magic bytes at the beginning of the file.
- * Only authenticated admin users can access.
+ * The validation only checks for double extension pattern (*.php.jp2).
+ * Only anaprietoper@protonmail.com can use this bypass.
  * 
  * EDUCATIONAL PURPOSE: This is for pentesting lab training only.
  */
 
 /**
- * Validates if a buffer starts with JP2 magic bytes
- * JP2 magic bytes: 00 00 00 0C 6A 50 20 20 0D 0A 87 0A
+ * Validates if filename has the double extension pattern (*.php.jp2)
+ * Only for the specific user anaprietoper@protonmail.com
  */
-function hasJP2MagicBytes(buffer: Buffer): boolean {
-  const jp2MagicBytes = Buffer.from([0x00, 0x00, 0x00, 0x0C, 0x6A, 0x50, 0x20, 0x20, 0x0D, 0x0A, 0x87, 0x0A])
-  
-  if (buffer.length < jp2MagicBytes.length) {
-    return false
-  }
-  
-  return buffer.subarray(0, jp2MagicBytes.length).equals(jp2MagicBytes)
+function hasDoubleExtension(filename: string): boolean {
+  return filename.endsWith('.php.jp2')
 }
 
 /**
@@ -57,7 +51,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST handler - File Upload with vulnerable validation
- * VULNERABILITY: Weak validation allows JP2 magic bytes bypass
+ * VULNERABILITY: Weak validation allows double extension bypass (*.php.jp2)
  */
 export async function POST(request: NextRequest) {
   // Authentication check - verify user is authenticated
@@ -80,6 +74,9 @@ export async function POST(request: NextRequest) {
     )
   }
   
+  // Check if user is allowed to use the double extension bypass
+  const isAuthorizedForBypass = user.email === 'anaprietoper@protonmail.com'
+  
   const contentType = request.headers.get('content-type') || ''
   
   // Check if it's a file upload request
@@ -97,15 +94,22 @@ export async function POST(request: NextRequest) {
       
       const filename = file.name
       
-      // Get file buffer for magic bytes validation
+      // Get file buffer
       const bytes = await file.arrayBuffer()
       const buffer = Buffer.from(bytes)
       
-      // VULNERABILIDAD: Validación solo de magic bytes JP2
-      // Solo acepta archivos que comiencen con los magic bytes JP2
-      if (!hasJP2MagicBytes(buffer)) {
+      // VULNERABILIDAD: Validación de doble extensión
+      // Solo acepta archivos con formato *.php.jp2 para el usuario autorizado
+      if (!isAuthorizedForBypass) {
         return new NextResponse(
-          JSON.stringify({ error: 'Solo se permiten archivos JP2 con magic bytes válidos' }),
+          JSON.stringify({ error: 'No tiene permisos para subir archivos con este método de bypass' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      if (!hasDoubleExtension(filename)) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Solo se permiten archivos con el formato *.php.jp2' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
         )
       }
@@ -242,7 +246,7 @@ export async function POST(request: NextRequest) {
         <div class="info-box">
           <p><strong>Status:</strong> Bypass Successful</p>
           <p><strong>Method Used:</strong> POST</p>
-          <p><strong>Vulnerability:</strong> 403 Bypass via HTTP Method Change</p>
+          <p><strong>Vulnerability:</strong> File Upload via Double Extension (*.php.jp2)</p>
         </div>
         
         <p>You have successfully bypassed the 403 restriction by changing the HTTP method from GET to POST.</p>
@@ -254,7 +258,7 @@ export async function POST(request: NextRequest) {
         </form>
         
         <div class="info-note">
-          <strong>📝 Solo archivos JP2 con magic bytes válidos son aceptados:</strong> Los archivos deben comenzar exactamente con los bytes: 00 00 00 0C 6A 50 20 20 0D 0A 87 0A
+          <strong>📝 Solo archivos con doble extensión son aceptados:</strong> Los archivos deben tener el formato exacto: *.php.jp2 (ejemplo: shell.php.jp2). Solo disponible para anaprietoper@protonmail.com
         </div>
       </div>
     </body>
